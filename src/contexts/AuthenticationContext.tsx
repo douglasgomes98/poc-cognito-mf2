@@ -1,8 +1,10 @@
+/* eslint-disable no-console */
 import {
   createContext,
   ReactNode,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
 } from 'react';
@@ -21,10 +23,19 @@ interface AuthenticationProviderProps {
 interface AuthenticationContextProps {
   handleNewPasswordRequired: (newPassword: string) => Promise<void>;
   handleNewPasswordRequiredIsLoading: boolean;
+  handleVerifySoftwareTokenMfa: (secretCode: string) => Promise<void>;
+  handleVerifySoftwareTokenMfaSetup: (
+    totpCode: string,
+    friendlyDeviceName: string,
+  ) => Promise<void>;
   login: (params: LoginParams) => Promise<void>;
   loginIsLoading: boolean;
+  logoffIsLoading: boolean;
   logout: () => Promise<void>;
+  mfaSecretCode: string | null;
   sessionStep: SessionStep;
+  verifySoftwareTokenMfaIsLoading: boolean;
+  verifySoftwareTokenMfaSetupIsLoading: boolean;
 }
 
 const AuthenticationContext = createContext({} as AuthenticationContextProps);
@@ -38,6 +49,14 @@ export function AuthenticationProvider({
     handleNewPasswordRequiredIsLoading,
     setHandleNewPasswordRequiredIsLoading,
   ] = useState(false);
+  const [
+    verifySoftwareTokenMfaSetupIsLoading,
+    setVerifySoftwareTokenMfaSetupIsLoading,
+  ] = useState(false);
+  const mfaSecretCode = Cognito.getMfaSecretCode();
+  const [logoffIsLoading, setLogoffIsLoading] = useState(false);
+  const [verifySoftwareTokenMfaIsLoading, setVerifySoftwareTokenMfaIsLoading] =
+    useState(false);
 
   const login = useCallback(async ({ email, password }: LoginParams) => {
     try {
@@ -61,26 +80,85 @@ export function AuthenticationProvider({
     }
   }, []);
 
+  const handleVerifySoftwareTokenMfaSetup = useCallback(
+    async (totpCode: string, friendlyDeviceName: string) => {
+      try {
+        setVerifySoftwareTokenMfaSetupIsLoading(true);
+        await Cognito.handleVerifySoftwareTokenMfaSetup(
+          totpCode,
+          friendlyDeviceName,
+        );
+      } catch (error) {
+        console.log(error);
+      } finally {
+        setVerifySoftwareTokenMfaSetupIsLoading(false);
+      }
+    },
+    [],
+  );
+
   const logout = useCallback(async () => {
-    Cognito.signOut();
+    try {
+      setLogoffIsLoading(true);
+      await Cognito.signOut();
+    } catch (error) {
+      console.log(error);
+    } finally {
+      setLogoffIsLoading(false);
+    }
+  }, []);
+
+  const handleVerifySoftwareTokenMfa = useCallback(
+    async (secretCode: string) => {
+      try {
+        setVerifySoftwareTokenMfaIsLoading(true);
+        await Cognito.handleVerifySoftwareTokenMfa(secretCode);
+      } catch (error) {
+        console.log(error);
+      } finally {
+        setVerifySoftwareTokenMfaIsLoading(false);
+      }
+    },
+    [],
+  );
+
+  useEffect(() => {
+    (async () => {
+      const session = await Cognito.getSession();
+      const userAttributes = await Cognito.getUserAttributes();
+
+      console.log({ session, userAttributes });
+    })();
   }, []);
 
   const value = useMemo(
     () => ({
       handleNewPasswordRequired,
       handleNewPasswordRequiredIsLoading,
+      handleVerifySoftwareTokenMfa,
+      handleVerifySoftwareTokenMfaSetup,
       login,
       loginIsLoading,
+      logoffIsLoading,
       logout,
+      mfaSecretCode,
       sessionStep,
+      verifySoftwareTokenMfaIsLoading,
+      verifySoftwareTokenMfaSetupIsLoading,
     }),
     [
       handleNewPasswordRequired,
       handleNewPasswordRequiredIsLoading,
+      handleVerifySoftwareTokenMfa,
+      handleVerifySoftwareTokenMfaSetup,
       login,
       loginIsLoading,
+      logoffIsLoading,
       logout,
+      mfaSecretCode,
       sessionStep,
+      verifySoftwareTokenMfaIsLoading,
+      verifySoftwareTokenMfaSetupIsLoading,
     ],
   );
 

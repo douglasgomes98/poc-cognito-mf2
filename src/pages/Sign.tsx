@@ -24,19 +24,9 @@ export function Sign() {
       <h1>Sign</h1>
 
       <form onSubmit={handleSubmit}>
-        <input
-          type="email"
-          name="email"
-          value="douglas@zenitcreative.com"
-          ref={inputEmailRef}
-        />
+        <input type="email" name="email" ref={inputEmailRef} />
         <br />
-        <input
-          type="password"
-          name="password"
-          value="Gurulegal11@"
-          ref={inputPasswordRef}
-        />
+        <input type="password" name="password" ref={inputPasswordRef} />
         <br />
         <button type="submit">login</button>
       </form>

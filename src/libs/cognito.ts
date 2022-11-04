@@ -1,8 +1,12 @@
-/* eslint-disable no-param-reassign */
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/ban-types */
 import {
   AuthenticationDetails,
+  ChallengeName,
   CognitoUser,
+  CognitoUserAttribute,
   CognitoUserPool,
+  CognitoUserSession,
   IAuthenticationDetailsData,
 } from 'amazon-cognito-identity-js';
 import { ENV } from '../config';
@@ -14,12 +18,16 @@ export interface ISessionUserAttributes {
   given_name: string;
   family_name: string;
   email: string;
+  email_verified: boolean;
+  phone_number_verified: boolean;
 }
 
 export enum SessionStep {
   LOGIN = 'LOGIN',
   NEW_PASSWORD_REQUIRED = 'NEW_PASSWORD_REQUIRED',
   LOGGED = 'LOGGED',
+  MFA_SETUP = 'MFA_SETUP',
+  MFA_REQUIRED = 'MFA_REQUIRED',
 }
 
 class CognitoService {
@@ -31,12 +39,23 @@ class CognitoService {
 
   private sessionStep: SessionStep;
 
+  private mfaSecretCode: string | null;
+
   constructor() {
     this.userPool = new CognitoUserPool({
       UserPoolId: ENV.COGNITO_USER_POOL_ID,
       ClientId: ENV.COGNITO_APP_CLIENT_ID,
+      // Storage: CookieStorage({domain: ".yourdomain.com"})
     });
-    this.sessionStep = SessionStep.LOGIN;
+
+    const existingUser = this.userPool.getCurrentUser();
+
+    if (existingUser) {
+      this.currentUser = existingUser;
+      this.sessionStep = SessionStep.LOGGED;
+    } else {
+      this.sessionStep = SessionStep.LOGIN;
+    }
   }
 
   async signIn(email: string, password: string) {
@@ -53,33 +72,51 @@ class CognitoService {
       this.currentUser = this.getCognitoUser(email);
 
       this.currentUser.authenticateUser(authenticationDetails, {
-        onSuccess: res => {
+        onSuccess: () => {
           this.sessionStep = SessionStep.LOGGED;
-
-          console.log(res);
           resolve();
         },
         onFailure: err => {
           reject(err);
         },
-        newPasswordRequired: userAttributes => {
-          delete userAttributes.email_verified;
-          this.sessionUserAttributes = userAttributes;
-          this.sessionStep = SessionStep.NEW_PASSWORD_REQUIRED;
-
-          resolve();
-        },
+        newPasswordRequired: (userAttributes, requiredAttributes) =>
+          this.onNewPasswordRequired(
+            userAttributes,
+            requiredAttributes,
+            resolve,
+          ),
+        mfaSetup: (challengeName, challengeParameters) =>
+          this.onMfaSetup(challengeName, challengeParameters, resolve),
+        totpRequired: (challengeName, challengeParameters) =>
+          this.onTotpRequired(challengeName, challengeParameters, resolve),
       });
     }).catch(err => {
       throw err;
     });
   }
 
+  private onNewPasswordRequired(
+    userAttributes: ISessionUserAttributes,
+    requiredAttributes: ISessionUserAttributes,
+    resolve: Function,
+  ) {
+    this.sessionUserAttributes = userAttributes;
+    this.sessionStep = SessionStep.NEW_PASSWORD_REQUIRED;
+    resolve();
+  }
+
   async handleNewPasswordRequired(newPassword: string) {
+    const requiredAttributeData = {
+      profile: this.sessionUserAttributes?.profile,
+      nickname: this.sessionUserAttributes?.nickname,
+      given_name: this.sessionUserAttributes?.given_name,
+      family_name: this.sessionUserAttributes?.family_name,
+    };
+
     return new Promise((resolve, reject) => {
       this.currentUser?.completeNewPasswordChallenge(
         newPassword,
-        this.sessionUserAttributes,
+        requiredAttributeData,
         {
           onSuccess: res => {
             this.sessionStep = SessionStep.LOGIN;
@@ -88,6 +125,16 @@ class CognitoService {
           onFailure: err => {
             reject(err);
           },
+          newPasswordRequired: (userAttributes, requiredAttributes) =>
+            this.onNewPasswordRequired(
+              userAttributes,
+              requiredAttributes,
+              resolve,
+            ),
+          mfaSetup: (challengeName, challengeParameters) =>
+            this.onMfaSetup(challengeName, challengeParameters, resolve),
+          totpRequired: (challengeName, challengeParameters) =>
+            this.onTotpRequired(challengeName, challengeParameters, resolve),
         },
       );
     }).catch(err => {
@@ -95,16 +142,130 @@ class CognitoService {
     });
   }
 
-  signOut() {
-    this.currentUser?.signOut();
+  private async onMfaSetup(
+    challengeName: ChallengeName,
+    challengeParameters: any,
+    resolve: Function,
+  ) {
+    this.sessionStep = SessionStep.MFA_SETUP;
+
+    return new Promise<void>((resolveFn, reject) => {
+      this.currentUser?.associateSoftwareToken({
+        associateSecretCode: secretCode => {
+          this.mfaSecretCode = secretCode;
+          resolveFn();
+          resolve();
+        },
+        onFailure: err => {
+          reject(err);
+        },
+      });
+    }).catch(err => {
+      throw err;
+    });
+  }
+
+  async handleVerifySoftwareTokenMfaSetup(
+    totpCode: string,
+    friendlyDeviceName: string,
+  ) {
+    return new Promise<void>((resolve, reject) => {
+      this.currentUser?.verifySoftwareToken(totpCode, friendlyDeviceName, {
+        onSuccess: () => {
+          this.sessionStep = SessionStep.LOGGED;
+          resolve();
+        },
+        onFailure: err => {
+          reject(err);
+        },
+      });
+    }).catch(err => {
+      throw err;
+    });
+  }
+
+  private async onTotpRequired(
+    challengeName: ChallengeName,
+    challengeParameters: any,
+    resolve: Function,
+  ) {
+    this.sessionStep = SessionStep.MFA_REQUIRED;
+
+    resolve();
+  }
+
+  async handleVerifySoftwareTokenMfa(secretCode: string) {
+    return new Promise<void>((resolve, reject) => {
+      this.currentUser?.sendMFACode(
+        secretCode,
+        {
+          onSuccess: () => {
+            this.sessionStep = SessionStep.LOGGED;
+            resolve();
+          },
+          onFailure: err => {
+            reject(err);
+          },
+        },
+        'SOFTWARE_TOKEN_MFA',
+      );
+    }).catch(err => {
+      throw err;
+    });
+  }
+
+  async getUserAttributes() {
+    return new Promise<CognitoUserAttribute[]>((resolve, reject) => {
+      this.currentUser?.getUserAttributes((err, attributes) => {
+        if (err || !attributes) {
+          reject(err);
+        } else {
+          resolve(attributes);
+        }
+      });
+    }).catch(err => {
+      throw err;
+    });
+  }
+
+  async getSession() {
+    return new Promise<CognitoUserSession>((resolve, reject) => {
+      this.currentUser?.getSession(
+        (err: Error | null, session: CognitoUserSession) => {
+          if (err) {
+            reject(err);
+          } else {
+            resolve(session);
+          }
+        },
+      );
+    }).catch(err => {
+      throw err;
+    });
+  }
+
+  async signOut() {
+    return new Promise<void>((resolve, reject) => {
+      this.currentUser?.globalSignOut({
+        onSuccess: () => {
+          this.sessionStep = SessionStep.LOGIN;
+          resolve();
+        },
+        onFailure: err => {
+          reject(err);
+        },
+      });
+    }).catch(err => {
+      throw err;
+    });
   }
 
   getCurrentSessionStep() {
     return this.sessionStep;
   }
 
-  private getCurrentUser() {
-    return this.currentUser;
+  getMfaSecretCode() {
+    return this.mfaSecretCode;
   }
 
   private getCognitoUser(email: string) {
@@ -119,26 +280,6 @@ class CognitoService {
 
 export const Cognito = new CognitoService();
 
-// let sessionUserAttributes;
-
-// export async function getSession() {
-//   if (!currentUser) {
-//     currentUser = userPool.getCurrentUser();
-//   }
-
-//   return new Promise(function (resolve, reject) {
-//     currentUser.getSession(function (err: any, session: any) {
-//       if (err) {
-//         reject(err);
-//       } else {
-//         resolve(session);
-//       }
-//     });
-//   }).catch((err) => {
-//     throw err;
-//   });
-// }
-
 // export async function verifyCode(username: string, code: string) {
 //   return new Promise(function (resolve, reject) {
 //     const cognitoUser = getCognitoUser(username);
@@ -148,20 +289,6 @@ export const Cognito = new CognitoService();
 //         reject(err);
 //       } else {
 //         resolve(result);
-//       }
-//     });
-//   }).catch((err) => {
-//     throw err;
-//   });
-// }
-
-// export async function getAttributes() {
-//   return new Promise(function (resolve, reject) {
-//     currentUser.getUserAttributes(function (err: any, attributes: any) {
-//       if (err) {
-//         reject(err);
-//       } else {
-//         resolve(attributes);
 //       }
 //     });
 //   }).catch((err) => {
