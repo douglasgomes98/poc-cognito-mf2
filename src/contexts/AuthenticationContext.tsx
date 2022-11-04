@@ -7,7 +7,7 @@ import {
   useState,
 } from "react";
 
-import * as cognito from "./cognito";
+import { Cognito } from "../libs";
 
 interface LoginParams {
   email: string;
@@ -19,13 +19,9 @@ interface AuthenticationProviderProps {
 }
 
 interface AuthenticationContextProps {
-  // isAuthenticated: boolean;
   login: (params: LoginParams) => Promise<void>;
-  loginError: string | null;
   loginIsLoading: boolean;
   logout: () => Promise<void>;
-  // onLoginSuccess?: () => void;
-  // onLoginFailure?: (error: unknown) => void;
 }
 
 const AuthenticationContext = createContext({} as AuthenticationContextProps);
@@ -34,17 +30,12 @@ export function AuthenticationProvider({
   children,
 }: AuthenticationProviderProps) {
   const [loginIsLoading, setLoginIsLoading] = useState(false);
-  const [loginError, setLoginError] = useState<string | null>(null);
 
   const login = useCallback(async ({ email, password }: LoginParams) => {
     setLoginIsLoading(true);
 
     try {
-      const response = await cognito.signInWithEmail(
-        "douglasgomes@zenitcreative.com",
-        "9tq4cr@#$D"
-      );
-      // const user = await Auth.signIn(email, password);
+      const response = await Cognito.signIn(email, password);
 
       console.log(response);
     } catch (error) {
@@ -55,27 +46,16 @@ export function AuthenticationProvider({
   }, []);
 
   const logout = useCallback(async () => {
-    await cognito.signOut();
+    Cognito.signOut();
   }, []);
 
   const value = useMemo(() => {
     return {
       login,
-      loginError,
       loginIsLoading,
       logout,
     };
-  }, [login, loginError, loginIsLoading, logout]);
-
-  // useEffect(() => {
-  //   (async () => {
-  //     const response1 = await cognito.getSession();
-  //     const response2 = await cognito.getCurrentUser();
-  //     const response3 = await cognito.getAttributes();
-
-  //     console.log({ response1, response2, response3 });
-  //   })();
-  // }, []);
+  }, [login, loginIsLoading, logout]);
 
   return (
     <AuthenticationContext.Provider value={value}>

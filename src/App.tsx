@@ -1,9 +1,10 @@
 import { AuthenticationProvider } from "./contexts/AuthenticationContext";
+import { Sign } from "./pages/Sign";
 
 function App() {
   return (
     <AuthenticationProvider>
-      <h1>Hello World</h1>
+      <Sign />
     </AuthenticationProvider>
   );
 }
