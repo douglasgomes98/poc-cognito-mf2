@@ -1,10 +1,10 @@
-import { AuthenticationProvider } from "./contexts/AuthenticationContext";
-import { Sign } from "./pages/Sign";
+import { AuthenticationProvider } from './contexts/AuthenticationContext';
+import { AppRoutes } from './routes';
 
 function App() {
   return (
     <AuthenticationProvider>
-      <Sign />
+      <AppRoutes />
     </AuthenticationProvider>
   );
 }

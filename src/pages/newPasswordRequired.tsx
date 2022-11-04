@@ -1,44 +1,35 @@
 import { FormEvent, useCallback, useRef } from 'react';
 import { useAuthenticationContext } from '../contexts/AuthenticationContext';
 
-export function Sign() {
-  const inputEmailRef = useRef<HTMLInputElement>(null);
+export function NewPasswordRequired() {
   const inputPasswordRef = useRef<HTMLInputElement>(null);
 
-  const { login } = useAuthenticationContext();
+  const { handleNewPasswordRequired } = useAuthenticationContext();
 
   const handleSubmit = useCallback(
     async (event: FormEvent) => {
       event.preventDefault();
 
-      const email = inputEmailRef.current?.value || '';
       const password = inputPasswordRef.current?.value || '';
 
-      await login({ email, password });
+      await handleNewPasswordRequired(password);
     },
-    [login],
+    [handleNewPasswordRequired],
   );
 
   return (
     <div>
-      <h1>Sign</h1>
+      <h1>NewPasswordRequired</h1>
 
       <form onSubmit={handleSubmit}>
         <input
-          type="email"
-          name="email"
-          value="douglas@zenitcreative.com"
-          ref={inputEmailRef}
-        />
-        <br />
-        <input
           type="password"
           name="password"
-          value="Gurulegal11@"
+          value="9tq4cr@#$D"
           ref={inputPasswordRef}
         />
         <br />
-        <button type="submit">login</button>
+        <button type="submit">change password</button>
       </form>
     </div>
   );

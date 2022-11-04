@@ -1,53 +1,106 @@
+/* eslint-disable no-param-reassign */
 import {
   AuthenticationDetails,
   CognitoUser,
-  CognitoUserAttribute,
   CognitoUserPool,
   IAuthenticationDetailsData,
-} from "amazon-cognito-identity-js";
-import { ENV } from "../config";
+} from 'amazon-cognito-identity-js';
+import { ENV } from '../config';
+
+export interface ISessionUserAttributes {
+  profile: string;
+  nickname: string;
+  phone_number: string;
+  given_name: string;
+  family_name: string;
+  email: string;
+}
+
+export enum SessionStep {
+  LOGIN = 'LOGIN',
+  NEW_PASSWORD_REQUIRED = 'NEW_PASSWORD_REQUIRED',
+  LOGGED = 'LOGGED',
+}
 
 class CognitoService {
   private userPool: CognitoUserPool;
+
   private currentUser: CognitoUser | null;
+
+  private sessionUserAttributes: ISessionUserAttributes | null;
+
+  private sessionStep: SessionStep;
 
   constructor() {
     this.userPool = new CognitoUserPool({
       UserPoolId: ENV.COGNITO_USER_POOL_ID,
       ClientId: ENV.COGNITO_APP_CLIENT_ID,
     });
+    this.sessionStep = SessionStep.LOGIN;
   }
 
   async signIn(email: string, password: string) {
-    return new Promise((resolve, reject) => {
+    return new Promise<void>((resolve, reject) => {
       const authenticationDetailsData: IAuthenticationDetailsData = {
         Username: email,
         Password: password,
       };
 
       const authenticationDetails = new AuthenticationDetails(
-        authenticationDetailsData
+        authenticationDetailsData,
       );
 
       this.currentUser = this.getCognitoUser(email);
 
       this.currentUser.authenticateUser(authenticationDetails, {
-        onSuccess(res) {
-          resolve(res);
+        onSuccess: res => {
+          this.sessionStep = SessionStep.LOGGED;
+
+          console.log(res);
+          resolve();
         },
-        onFailure(err) {
+        onFailure: err => {
           reject(err);
         },
+        newPasswordRequired: userAttributes => {
+          delete userAttributes.email_verified;
+          this.sessionUserAttributes = userAttributes;
+          this.sessionStep = SessionStep.NEW_PASSWORD_REQUIRED;
+
+          resolve();
+        },
       });
-    }).catch((err) => {
+    }).catch(err => {
+      throw err;
+    });
+  }
+
+  async handleNewPasswordRequired(newPassword: string) {
+    return new Promise((resolve, reject) => {
+      this.currentUser?.completeNewPasswordChallenge(
+        newPassword,
+        this.sessionUserAttributes,
+        {
+          onSuccess: res => {
+            this.sessionStep = SessionStep.LOGIN;
+            resolve(res);
+          },
+          onFailure: err => {
+            reject(err);
+          },
+        },
+      );
+    }).catch(err => {
       throw err;
     });
   }
 
   signOut() {
-    if (this.currentUser) {
-      this.currentUser.signOut();
-    }
+    this.currentUser?.signOut();
+  }
+
+  getCurrentSessionStep() {
+    return this.sessionStep;
   }
 
   private getCurrentUser() {
