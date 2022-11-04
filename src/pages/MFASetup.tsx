@@ -21,8 +21,6 @@ export function MFASetup() {
     [handleVerifySoftwareTokenMfaSetup],
   );
 
-  console.log({ mfaSecretCode });
-
   return (
     <div>
       <h1>MFASetup</h1>
@@ -30,7 +28,10 @@ export function MFASetup() {
       {mfaSecretCode && (
         <>
           <div>
-            <QRCode size={256} value={mfaSecretCode} />
+            <QRCode
+              size={256}
+              value={`otpauth://totp/Agent%20Guru?secret=${mfaSecretCode}`}
+            />
           </div>
           <br />
         </>
