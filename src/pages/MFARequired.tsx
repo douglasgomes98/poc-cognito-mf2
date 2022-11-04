@@ -22,7 +22,7 @@ export function MFARequired() {
       <h1>MFARequired</h1>
 
       <form onSubmit={handleSubmit}>
-        <input type="code" name="code" ref={inputCodeRef} />
+        <input type="code" name="code" placeholder="code" ref={inputCodeRef} />
         <br />
         <button type="submit">send code</button>
       </form>

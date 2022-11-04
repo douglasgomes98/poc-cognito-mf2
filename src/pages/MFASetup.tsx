@@ -1,4 +1,5 @@
 import { FormEvent, useCallback, useRef } from 'react';
+import QRCode from 'react-qr-code';
 import { useAuthenticationContext } from '../contexts/AuthenticationContext';
 
 export function MFASetup() {
@@ -26,12 +27,24 @@ export function MFASetup() {
     <div>
       <h1>MFASetup</h1>
 
+      {mfaSecretCode && (
+        <>
+          <div>
+            <QRCode size={256} value={mfaSecretCode} />
+          </div>
+          <br />
+        </>
+      )}
+
       <form onSubmit={handleSubmit}>
-        <input type="code" name="code" ref={inputCodeRef} />
+        <input type="code" name="code" placeholder="code" ref={inputCodeRef} />
         <br />
-        <input type="device" name="device" ref={inputDeviceRef} />
-        <br />
-        <input type="code" name="code" ref={inputCodeRef} />
+        <input
+          type="device"
+          name="device"
+          placeholder="device"
+          ref={inputDeviceRef}
+        />
         <br />
         <button type="submit">set totp code</button>
       </form>

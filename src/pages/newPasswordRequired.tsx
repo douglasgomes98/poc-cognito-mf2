@@ -22,7 +22,12 @@ export function NewPasswordRequired() {
       <h1>NewPasswordRequired</h1>
 
       <form onSubmit={handleSubmit}>
-        <input type="password" name="password" ref={inputPasswordRef} />
+        <input
+          type="password"
+          name="password"
+          placeholder="password"
+          ref={inputPasswordRef}
+        />
         <br />
         <button type="submit">change password</button>
       </form>
