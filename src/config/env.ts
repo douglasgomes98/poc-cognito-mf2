@@ -1,5 +1,5 @@
 export const ENV = {
-  COGNITO_REGION: 'us-east-1',
-  COGNITO_USER_POOL_ID: 'us-east-1_pxnfHIwkb',
-  COGNITO_APP_CLIENT_ID: '55lpsql8aphfcjst2r5sk452ah',
+  COGNITO_REGION: process.env.COGNITO_REGION,
+  COGNITO_USER_POOL_ID: process.env.COGNITO_USER_POOL_ID,
+  COGNITO_APP_CLIENT_ID: process.env.COGNITO_APP_CLIENT_ID,
 };

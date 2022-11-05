@@ -6,8 +6,8 @@
   "scripts": {
     "build": "tsc && vite build",
     "dev": "vite",
-    "preview": "vite preview",
-    "lint": "yarn eslint --max-warnings=0 --fix src"
+    "lint": "yarn eslint --max-warnings=0 --fix src",
+    "preview": "vite preview"
   },
   "dependencies": {
     "amazon-cognito-identity-js": "^5.2.12",
@@ -18,6 +18,7 @@
     "react-router-dom": "^6.4.3"
   },
   "devDependencies": {
+    "@types/node": "^18.11.9",
     "@types/react": "^18.0.22",
     "@types/react-dom": "^18.0.7",
     "@typescript-eslint/eslint-plugin": "^5.42.0",

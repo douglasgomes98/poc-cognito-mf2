@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-/* eslint-disable @typescript-eslint/ban-types */
 import {
   AuthenticationDetails,
   ChallengeName,
@@ -45,7 +43,10 @@ class CognitoService {
     this.userPool = new CognitoUserPool({
       UserPoolId: ENV.COGNITO_USER_POOL_ID,
       ClientId: ENV.COGNITO_APP_CLIENT_ID,
-      // Storage: CookieStorage({domain: ".yourdomain.com"})
+      // Storage: new CookieStorage({
+      //   domain: 'http://localhost:5173/',
+      //   secure: false,
+      // }),
     });
 
     const existingUser = this.userPool.getCurrentUser();
